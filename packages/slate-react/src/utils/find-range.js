@@ -55,8 +55,8 @@ function findRange(native, editor) {
   // last word of a span, it sets the endContainer to the containing span.
   // `selection-is-backward` doesn't handle this case.
   if (IS_IE || IS_EDGE) {
-    const domAnchor = findDOMPoint(anchor)
-    const domFocus = findDOMPoint(focus)
+    const domAnchor = findDOMPoint(anchor, window)
+    const domFocus = findDOMPoint(focus, window)
 
     native = {
       anchorNode: domAnchor.node,
