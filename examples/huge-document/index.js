@@ -48,22 +48,7 @@ class HugeDocument extends React.Component {
    * @type {Object}
    */
 
-  constructor() {
-    super()
-    console.time('deserializeHugeDocument')
-    this.state = { value: Value.fromJSON(json, { normalize: false }) }
-    console.timeEnd('deserializeHugeDocument')
-  }
-
-  /**
-   * On change.
-   *
-   * @param {Change} change
-   */
-
-  onChange = ({ value }) => {
-    this.setState({ value })
-  }
+  state = { value: Value.fromJSON(json, { normalize: false }) }
 
   /**
    * Render the editor.
@@ -73,17 +58,14 @@ class HugeDocument extends React.Component {
 
   render() {
     return (
-      <div className="editor">
-        <Editor
-          placeholder="Enter some text..."
-          spellCheck={false}
-          value={this.state.value}
-          onChange={this.onChange}
-          onKeyDown={this.onKeyDown}
-          renderNode={this.renderNode}
-          renderMark={this.renderMark}
-        />
-      </div>
+      <Editor
+        placeholder="Enter some text..."
+        spellCheck={false}
+        value={this.state.value}
+        onChange={this.onChange}
+        renderNode={this.renderNode}
+        renderMark={this.renderMark}
+      />
     )
   }
 
@@ -91,14 +73,19 @@ class HugeDocument extends React.Component {
    * Render a Slate node.
    *
    * @param {Object} props
+   * @param {Editor} editor
+   * @param {Function} next
    * @return {Element}
    */
 
-  renderNode = props => {
+  renderNode = (props, editor, next) => {
     const { attributes, children, node } = props
+
     switch (node.type) {
       case 'heading':
         return <h1 {...attributes}>{children}</h1>
+      default:
+        return next()
     }
   }
 
@@ -106,21 +93,36 @@ class HugeDocument extends React.Component {
    * Render a Slate mark.
    *
    * @param {Object} props
+   * @param {Editor} editor
+   * @param {Function} next
    * @return {Element}
    */
 
-  renderMark = props => {
-    const { children, mark } = props
+  renderMark = (props, editor, next) => {
+    const { children, mark, attributes } = props
+
     switch (mark.type) {
       case 'bold':
-        return <strong>{children}</strong>
+        return <strong {...attributes}>{children}</strong>
       case 'code':
-        return <code>{children}</code>
+        return <code {...attributes}>{children}</code>
       case 'italic':
-        return <em>{children}</em>
+        return <em {...attributes}>{children}</em>
       case 'underlined':
-        return <u>{children}</u>
+        return <u {...attributes}>{children}</u>
+      default:
+        return next()
     }
+  }
+
+  /**
+   * On change.
+   *
+   * @param {Editor} editor
+   */
+
+  onChange = ({ value }) => {
+    this.setState({ value })
   }
 }
 

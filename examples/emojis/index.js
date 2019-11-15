@@ -3,6 +3,18 @@ import { Value } from 'slate'
 
 import React from 'react'
 import initialValue from './value.json'
+import styled from 'react-emotion'
+import { Button, Icon, Toolbar } from '../components'
+
+/**
+ * A styled emoji inline component.
+ *
+ * @type {Component}
+ */
+
+const Emoji = styled('span')`
+  outline: ${props => (props.selected ? '2px solid blue' : 'none')};
+`
 
 /**
  * Emojis.
@@ -27,7 +39,6 @@ const EMOJIS = [
   '👻',
   '🍔',
   '🍑',
-  '🍆',
   '🔑',
 ]
 
@@ -57,9 +68,98 @@ class Emojis extends React.Component {
   }
 
   /**
+   * The editor's schema.
+   *
+   * @type {Object}
+   */
+
+  schema = {
+    inlines: {
+      emoji: {
+        isVoid: true,
+      },
+    },
+  }
+
+  /**
+   * Store a reference to the `editor`.
+   *
+   * @param {Editor} editor
+   */
+
+  ref = editor => {
+    this.editor = editor
+  }
+
+  /**
+   * Render the app.
+   *
+   * @return {Element} element
+   */
+
+  render() {
+    return (
+      <div>
+        <Toolbar>
+          {EMOJIS.map((emoji, i) => (
+            <Button key={i} onMouseDown={e => this.onClickEmoji(e, emoji)}>
+              <Icon>{emoji}</Icon>
+            </Button>
+          ))}
+        </Toolbar>
+        <Editor
+          placeholder="Write some 😍👋🎉..."
+          ref={this.ref}
+          value={this.state.value}
+          schema={this.schema}
+          onChange={this.onChange}
+          renderNode={this.renderNode}
+        />
+      </div>
+    )
+  }
+
+  /**
+   * Render a Slate node.
+   *
+   * @param {Object} props
+   * @param {Editor} editor
+   * @param {Function} next
+   * @return {Element}
+   */
+
+  renderNode = (props, editor, next) => {
+    const { attributes, children, node, isFocused } = props
+
+    switch (node.type) {
+      case 'paragraph': {
+        return <p {...attributes}>{children}</p>
+      }
+
+      case 'emoji': {
+        const code = node.data.get('code')
+        return (
+          <Emoji
+            {...props.attributes}
+            selected={isFocused}
+            contentEditable={false}
+            onDrop={noop}
+          >
+            {code}
+          </Emoji>
+        )
+      }
+
+      default: {
+        return next()
+      }
+    }
+  }
+
+  /**
    * On change.
    *
-   * @param {Change} change
+   * @param {Editor} editor
    */
 
   onChange = ({ value }) => {
@@ -74,105 +174,11 @@ class Emojis extends React.Component {
 
   onClickEmoji = (e, code) => {
     e.preventDefault()
-    const { value } = this.state
-    const change = value.change()
 
-    change
-      .insertInline({
-        type: 'emoji',
-        isVoid: true,
-        data: { code },
-      })
-      .collapseToStartOfNextText()
+    this.editor
+      .insertInline({ type: 'emoji', data: { code } })
+      .moveToStartOfNextText()
       .focus()
-
-    this.onChange(change)
-  }
-
-  /**
-   * Render the app.
-   *
-   * @return {Element} element
-   */
-
-  render = () => {
-    return (
-      <div>
-        {this.renderToolbar()}
-        {this.renderEditor()}
-      </div>
-    )
-  }
-
-  /**
-   * Render the toolbar.
-   *
-   * @return {Element} element
-   */
-
-  renderToolbar = () => {
-    return (
-      <div className="menu toolbar-menu">
-        {EMOJIS.map((emoji, i) => {
-          const onMouseDown = e => this.onClickEmoji(e, emoji)
-          return (
-            // eslint-disable-next-line react/jsx-no-bind
-            <span key={i} className="button" onMouseDown={onMouseDown}>
-              <span className="material-icons">{emoji}</span>
-            </span>
-          )
-        })}
-      </div>
-    )
-  }
-
-  /**
-   * Render the editor.
-   *
-   * @return {Element} element
-   */
-
-  renderEditor = () => {
-    return (
-      <div className="editor">
-        <Editor
-          placeholder="Write some 😍👋🎉..."
-          value={this.state.value}
-          onChange={this.onChange}
-          renderNode={this.renderNode}
-        />
-      </div>
-    )
-  }
-
-  /**
-   * Render a Slate node.
-   *
-   * @param {Object} props
-   * @return {Element}
-   */
-
-  renderNode = props => {
-    const { attributes, children, node, isSelected } = props
-    switch (node.type) {
-      case 'paragraph': {
-        return <p {...attributes}>{children}</p>
-      }
-      case 'emoji': {
-        const { data } = node
-        const code = data.get('code')
-        return (
-          <span
-            className={`emoji ${isSelected ? 'selected' : ''}`}
-            {...props.attributes}
-            contentEditable={false}
-            onDrop={noop}
-          >
-            {code}
-          </span>
-        )
-      }
-    }
   }
 }
 

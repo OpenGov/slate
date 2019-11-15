@@ -2,11 +2,12 @@ import Debug from 'debug'
 import ImmutableTypes from 'react-immutable-proptypes'
 import React from 'react'
 import SlateTypes from 'slate-prop-types'
-import logger from 'slate-dev-logger'
+import warning from 'tiny-warning'
 import Types from 'prop-types'
 
 import Void from './void'
 import Text from './text'
+import getChildrenDecorations from '../utils/get-children-decorations'
 
 /**
  * Debug.
@@ -33,6 +34,7 @@ class Node extends React.Component {
     block: SlateTypes.block,
     decorations: ImmutableTypes.list.isRequired,
     editor: Types.object.isRequired,
+    isFocused: Types.bool.isRequired,
     isSelected: Types.bool.isRequired,
     node: SlateTypes.node.isRequired,
     parent: SlateTypes.node.isRequired,
@@ -60,10 +62,10 @@ class Node extends React.Component {
    * @return {Boolean}
    */
 
-  shouldComponentUpdate = nextProps => {
+  shouldComponentUpdate(nextProps) {
     const { props } = this
-    const { stack } = props.editor
-    const shouldUpdate = stack.find(
+    const { editor } = props
+    const shouldUpdate = editor.run(
       'shouldNodeComponentUpdate',
       props,
       nextProps
@@ -79,11 +81,10 @@ class Node extends React.Component {
         return true
       }
 
-      if (shouldUpdate === false) {
-        logger.warn(
-          "Returning false in `shouldNodeComponentUpdate` does not disable Slate's internal `shouldComponentUpdate` logic. If you want to prevent updates, use React's `shouldComponentUpdate` instead."
-        )
-      }
+      warning(
+        shouldUpdate !== false,
+        "Returning false in `shouldNodeComponentUpdate` does not disable Slate's internal `shouldComponentUpdate` logic. If you want to prevent updates, use React's `shouldComponentUpdate` instead."
+      )
     }
 
     // If the `readOnly` status has changed, re-render in case there is any
@@ -102,6 +103,7 @@ class Node extends React.Component {
     // selection value of some of its children could have been changed and they
     // need to be rendered again.
     if (n.isSelected || p.isSelected) return true
+    if (n.isFocused || p.isFocused) return true
 
     // If the decorations have changed, update.
     if (!n.decorations.equals(p.decorations)) return true
@@ -118,24 +120,37 @@ class Node extends React.Component {
 
   render() {
     this.debug('render', this)
-
-    const { editor, isSelected, node, parent, readOnly } = this.props
+    const {
+      editor,
+      isSelected,
+      isFocused,
+      node,
+      decorations,
+      parent,
+      readOnly,
+    } = this.props
     const { value } = editor
     const { selection } = value
-    const { stack } = editor
     const indexes = node.getSelectionIndexes(selection, isSelected)
-    let children = node.nodes.toArray().map((child, i) => {
+    const decs = decorations.concat(node.getDecorations(editor))
+    const childrenDecorations = getChildrenDecorations(node, decs)
+    const children = []
+
+    node.nodes.forEach((child, i) => {
       const isChildSelected = !!indexes && indexes.start <= i && i < indexes.end
-      return this.renderNode(child, isChildSelected)
+
+      children.push(
+        this.renderNode(child, isChildSelected, childrenDecorations[i])
+      )
     })
 
-    // Attributes that the developer must to mix into the element in their
+    // Attributes that the developer must mix into the element in their
     // custom node renderer component.
     const attributes = { 'data-key': node.key }
 
     // If it's a block node with inline children, add the proper `dir` attribute
     // for text direction.
-    if (node.object == 'block' && node.nodes.first().object != 'block') {
+    if (node.isLeafBlock()) {
       const direction = node.getTextDirection()
       if (direction == 'rtl') attributes.dir = 'rtl'
     }
@@ -143,28 +158,24 @@ class Node extends React.Component {
     const props = {
       key: node.key,
       editor,
+      isFocused,
       isSelected,
       node,
       parent,
       readOnly,
     }
 
-    let placeholder = stack.find('renderPlaceholder', props)
-
-    if (placeholder) {
-      placeholder = React.cloneElement(placeholder, {
-        key: `${node.key}-placeholder`,
-      })
-      children = [placeholder, ...children]
-    }
-
-    const element = stack.find('renderNode', {
+    const element = editor.run('renderNode', {
       ...props,
       attributes,
       children,
     })
 
-    return node.isVoid ? <Void {...this.props}>{element}</Void> : element
+    return editor.query('isVoid', node) ? (
+      <Void {...this.props}>{element}</Void>
+    ) : (
+      element
+    )
   }
 
   /**
@@ -172,20 +183,21 @@ class Node extends React.Component {
    *
    * @param {Node} child
    * @param {Boolean} isSelected
+   * @param {Array<Decoration>} decorations
    * @return {Element}
    */
 
-  renderNode = (child, isSelected) => {
-    const { block, decorations, editor, node, readOnly } = this.props
-    const { stack } = editor
+  renderNode = (child, isSelected, decorations) => {
+    const { block, editor, node, readOnly, isFocused } = this.props
     const Component = child.object == 'text' ? Text : Node
-    const decs = decorations.concat(node.getDecorations(stack))
+
     return (
       <Component
         block={node.object == 'block' ? node : block}
-        decorations={decs}
+        decorations={decorations}
         editor={editor}
         isSelected={isSelected}
+        isFocused={isFocused && isSelected}
         key={child.key}
         node={child}
         parent={node}

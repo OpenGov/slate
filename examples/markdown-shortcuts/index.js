@@ -62,15 +62,13 @@ class MarkdownShortcuts extends React.Component {
 
   render() {
     return (
-      <div className="editor">
-        <Editor
-          placeholder="Write some markdown..."
-          value={this.state.value}
-          onChange={this.onChange}
-          onKeyDown={this.onKeyDown}
-          renderNode={this.renderNode}
-        />
-      </div>
+      <Editor
+        placeholder="Write some markdown..."
+        value={this.state.value}
+        onChange={this.onChange}
+        onKeyDown={this.onKeyDown}
+        renderNode={this.renderNode}
+      />
     )
   }
 
@@ -78,11 +76,14 @@ class MarkdownShortcuts extends React.Component {
    * Render a Slate node.
    *
    * @param {Object} props
+   * @param {Editor} editor
+   * @param {Function} next
    * @return {Element}
    */
 
-  renderNode = props => {
+  renderNode = (props, editor, next) => {
     const { attributes, children, node } = props
+
     switch (node.type) {
       case 'block-quote':
         return <blockquote {...attributes}>{children}</blockquote>
@@ -102,13 +103,15 @@ class MarkdownShortcuts extends React.Component {
         return <h6 {...attributes}>{children}</h6>
       case 'list-item':
         return <li {...attributes}>{children}</li>
+      default:
+        return next()
     }
   }
 
   /**
    * On change.
    *
-   * @param {Change} change
+   * @param {Editor} editor
    */
 
   onChange = ({ value }) => {
@@ -119,17 +122,20 @@ class MarkdownShortcuts extends React.Component {
    * On key down, check for our specific key shortcuts.
    *
    * @param {Event} event
-   * @param {Change} change
+   * @param {Editor} editor
+   * @param {Function} next
    */
 
-  onKeyDown = (event, change) => {
+  onKeyDown = (event, editor, next) => {
     switch (event.key) {
       case ' ':
-        return this.onSpace(event, change)
+        return this.onSpace(event, editor, next)
       case 'Backspace':
-        return this.onBackspace(event, change)
+        return this.onBackspace(event, editor, next)
       case 'Enter':
-        return this.onEnter(event, change)
+        return this.onEnter(event, editor, next)
+      default:
+        return next()
     }
   }
 
@@ -138,29 +144,30 @@ class MarkdownShortcuts extends React.Component {
    * node into the shortcut's corresponding type.
    *
    * @param {Event} event
-   * @param {Change} change
+   * @param {Editor} editor
+   * @param {Function} next
    */
 
-  onSpace = (event, change) => {
-    const { value } = change
-    if (value.isExpanded) return
+  onSpace = (event, editor, next) => {
+    const { value } = editor
+    const { selection } = value
+    if (selection.isExpanded) return next()
 
-    const { startBlock, startOffset } = value
-    const chars = startBlock.text.slice(0, startOffset).replace(/\s*/g, '')
+    const { startBlock } = value
+    const { start } = selection
+    const chars = startBlock.text.slice(0, start.offset).replace(/\s*/g, '')
     const type = this.getType(chars)
-
-    if (!type) return
-    if (type == 'list-item' && startBlock.type == 'list-item') return
+    if (!type) return next()
+    if (type == 'list-item' && startBlock.type == 'list-item') return next()
     event.preventDefault()
 
-    change.setBlocks(type)
+    editor.setBlocks(type)
 
     if (type == 'list-item') {
-      change.wrapBlock('bulleted-list')
+      editor.wrapBlock('bulleted-list')
     }
 
-    change.extendToStartOf(startBlock).delete()
-    return true
+    editor.moveFocusToStartOfNode(startBlock).delete()
   }
 
   /**
@@ -168,25 +175,25 @@ class MarkdownShortcuts extends React.Component {
    * paragraph node.
    *
    * @param {Event} event
-   * @param {Change} change
+   * @param {Editor} editor
+   * @param {Function} next
    */
 
-  onBackspace = (event, change) => {
-    const { value } = change
-    if (value.isExpanded) return
-    if (value.startOffset != 0) return
+  onBackspace = (event, editor, next) => {
+    const { value } = editor
+    const { selection } = value
+    if (selection.isExpanded) return next()
+    if (selection.start.offset != 0) return next()
 
     const { startBlock } = value
-    if (startBlock.type == 'paragraph') return
+    if (startBlock.type == 'paragraph') return next()
 
     event.preventDefault()
-    change.setBlocks('paragraph')
+    editor.setBlocks('paragraph')
 
     if (startBlock.type == 'list-item') {
-      change.unwrapBlock('bulleted-list')
+      editor.unwrapBlock('bulleted-list')
     }
-
-    return true
   }
 
   /**
@@ -194,17 +201,20 @@ class MarkdownShortcuts extends React.Component {
    * create a new paragraph below it.
    *
    * @param {Event} event
-   * @param {Change} change
+   * @param {Editor} editor
+   * @param {Function} next
    */
 
-  onEnter = (event, change) => {
-    const { value } = change
-    if (value.isExpanded) return
+  onEnter = (event, editor, next) => {
+    const { value } = editor
+    const { selection } = value
+    const { start, end, isExpanded } = selection
+    if (isExpanded) return next()
 
-    const { startBlock, startOffset, endOffset } = value
-    if (startOffset == 0 && startBlock.text.length == 0)
-      return this.onBackspace(event, change)
-    if (endOffset != startBlock.text.length) return
+    const { startBlock } = value
+    if (start.offset == 0 && startBlock.text.length == 0)
+      return this.onBackspace(event, editor, next)
+    if (end.offset != startBlock.text.length) return next()
 
     if (
       startBlock.type != 'heading-one' &&
@@ -215,12 +225,11 @@ class MarkdownShortcuts extends React.Component {
       startBlock.type != 'heading-six' &&
       startBlock.type != 'block-quote'
     ) {
-      return
+      return next()
     }
 
     event.preventDefault()
-    change.splitBlock().setBlocks('paragraph')
-    return true
+    editor.splitBlock().setBlocks('paragraph')
   }
 }
 

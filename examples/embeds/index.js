@@ -23,13 +23,17 @@ class Embeds extends React.Component {
   }
 
   /**
-   * On change.
+   * The editor's schema.
    *
-   * @param {Change} change
+   * @type {Object}
    */
 
-  onChange = ({ value }) => {
-    this.setState({ value })
+  schema = {
+    blocks: {
+      video: {
+        isVoid: true,
+      },
+    },
   }
 
   /**
@@ -40,14 +44,13 @@ class Embeds extends React.Component {
 
   render() {
     return (
-      <div className="editor">
-        <Editor
-          placeholder="Enter some text..."
-          value={this.state.value}
-          onChange={this.onChange}
-          renderNode={this.renderNode}
-        />
-      </div>
+      <Editor
+        placeholder="Enter some text..."
+        value={this.state.value}
+        schema={this.schema}
+        onChange={this.onChange}
+        renderNode={this.renderNode}
+      />
     )
   }
 
@@ -55,14 +58,27 @@ class Embeds extends React.Component {
    * Render a Slate node.
    *
    * @param {Object} props
-   * @return {Element}
+   * @param {Editor} editor
+   * @param {Function} next
    */
 
-  renderNode = props => {
+  renderNode = (props, editor, next) => {
     switch (props.node.type) {
       case 'video':
         return <Video {...props} />
+      default:
+        return next()
     }
+  }
+
+  /**
+   * On change.
+   *
+   * @param {Editor} editor
+   */
+
+  onChange = ({ value }) => {
+    this.setState({ value })
   }
 }
 

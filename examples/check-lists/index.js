@@ -3,6 +3,37 @@ import { Value } from 'slate'
 
 import React from 'react'
 import initialValue from './value.json'
+import styled from 'react-emotion'
+
+/**
+ * Create a few styling components.
+ *
+ * @type {Component}
+ */
+
+const ItemWrapper = styled('div')`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+
+  & + & {
+    margin-top: 0;
+  }
+`
+
+const CheckboxWrapper = styled('span')`
+  margin-right: 0.75em;
+`
+
+const ContentWrapper = styled('span')`
+  flex: 1;
+  opacity: ${props => (props.checked ? 0.666 : 1)};
+  text-decoration: ${props => (props.checked ? 'none' : 'line-through')};
+
+  &:focus {
+    outline: none;
+  }
+`
 
 /**
  * Check list item.
@@ -20,7 +51,7 @@ class CheckListItem extends React.Component {
   onChange = event => {
     const checked = event.target.checked
     const { editor, node } = this.props
-    editor.change(c => c.setNodeByKey(node.key, { data: { checked } }))
+    editor.setNodeByKey(node.key, { data: { checked } })
   }
 
   /**
@@ -34,18 +65,18 @@ class CheckListItem extends React.Component {
     const { attributes, children, node, readOnly } = this.props
     const checked = node.data.get('checked')
     return (
-      <div
-        className={`check-list-item ${checked ? 'checked' : ''}`}
-        contentEditable={false}
-        {...attributes}
-      >
-        <span>
+      <ItemWrapper {...attributes}>
+        <CheckboxWrapper contentEditable={false}>
           <input type="checkbox" checked={checked} onChange={this.onChange} />
-        </span>
-        <span contentEditable={!readOnly} suppressContentEditableWarning>
+        </CheckboxWrapper>
+        <ContentWrapper
+          checked={checked}
+          contentEditable={!readOnly}
+          suppressContentEditableWarning
+        >
           {children}
-        </span>
-      </div>
+        </ContentWrapper>
+      </ItemWrapper>
     )
   }
 }
@@ -68,9 +99,44 @@ class CheckLists extends React.Component {
   }
 
   /**
+   * Render.
+   *
+   * @return {Element}
+   */
+
+  render() {
+    return (
+      <Editor
+        spellCheck
+        placeholder="Get to work..."
+        value={this.state.value}
+        onChange={this.onChange}
+        onKeyDown={this.onKeyDown}
+        renderNode={this.renderNode}
+      />
+    )
+  }
+
+  /**
+   * Render a Slate node.
+   *
+   * @param {Object} props
+   * @return {Element}
+   */
+
+  renderNode = (props, editor, next) => {
+    switch (props.node.type) {
+      case 'check-list-item':
+        return <CheckListItem {...props} />
+      default:
+        return next()
+    }
+  }
+
+  /**
    * On change, save the new value.
    *
-   * @param {Change} change
+   * @param {Editor} editor
    */
 
   onChange = ({ value }) => {
@@ -87,16 +153,16 @@ class CheckLists extends React.Component {
    * then turn it back into a paragraph.
    *
    * @param {Event} event
-   * @param {Change} change
-   * @return {Value|Void}
+   * @param {Editor} editor
+   * @param {Function} next
    */
 
-  onKeyDown = (event, change) => {
-    const { value } = change
+  onKeyDown = (event, editor, next) => {
+    const { value } = editor
 
     if (event.key == 'Enter' && value.startBlock.type == 'check-list-item') {
-      change.splitBlock().setBlocks({ data: { checked: false } })
-      return true
+      editor.splitBlock().setBlocks({ data: { checked: false } })
+      return
     }
 
     if (
@@ -105,46 +171,11 @@ class CheckLists extends React.Component {
       value.startBlock.type == 'check-list-item' &&
       value.selection.startOffset == 0
     ) {
-      change.setBlocks('paragraph')
-      return true
+      editor.setBlocks('paragraph')
+      return
     }
-  }
 
-  /**
-   * Render.
-   *
-   * @return {Element}
-   */
-
-  render() {
-    return (
-      <div>
-        <div className="editor">
-          <Editor
-            spellCheck
-            placeholder="Get to work..."
-            value={this.state.value}
-            onChange={this.onChange}
-            onKeyDown={this.onKeyDown}
-            renderNode={this.renderNode}
-          />
-        </div>
-      </div>
-    )
-  }
-
-  /**
-   * Render a Slate node.
-   *
-   * @param {Object} props
-   * @return {Element}
-   */
-
-  renderNode = props => {
-    switch (props.node.type) {
-      case 'check-list-item':
-        return <CheckListItem {...props} />
-    }
+    next()
   }
 }
 

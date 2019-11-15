@@ -1,20 +1,25 @@
 import getWindow from 'get-window'
-import isBackward from 'selection-is-backward'
-import { Range } from 'slate'
+import invariant from 'tiny-invariant'
+import { IS_IE, IS_EDGE } from 'slate-dev-environment'
+import { Value } from 'slate'
 
 import findPoint from './find-point'
 import findDOMPoint from './find-dom-point'
-import { IS_IE, IS_EDGE } from '../constants/environment'
 
 /**
  * Find a Slate range from a DOM `native` selection.
  *
  * @param {Selection} native
- * @param {Value} value
+ * @param {Editor} editor
  * @return {Range}
  */
 
-function findRange(native, value) {
+function findRange(native, editor) {
+  invariant(
+    !Value.isValue(editor),
+    'As of Slate 0.42.0, the `findNode` utility takes an `editor` instead of a `value`.'
+  )
+
   const el = native.anchorNode || native.startContainer
   if (!el) return null
 
@@ -41,16 +46,17 @@ function findRange(native, value) {
     focusOffset,
     isCollapsed,
   } = native
-  const anchor = findPoint(anchorNode, anchorOffset, value)
-  const focus = isCollapsed ? anchor : findPoint(focusNode, focusOffset, value)
+  const { value } = editor
+  const anchor = findPoint(anchorNode, anchorOffset, editor)
+  const focus = isCollapsed ? anchor : findPoint(focusNode, focusOffset, editor)
   if (!anchor || !focus) return null
 
   // COMPAT: ??? The Edge browser seems to have a case where if you select the
   // last word of a span, it sets the endContainer to the containing span.
   // `selection-is-backward` doesn't handle this case.
   if (IS_IE || IS_EDGE) {
-    const domAnchor = findDOMPoint(anchor.key, anchor.offset)
-    const domFocus = findDOMPoint(focus.key, focus.offset)
+    const domAnchor = findDOMPoint(anchor)
+    const domFocus = findDOMPoint(focus)
 
     native = {
       anchorNode: domAnchor.node,
@@ -60,13 +66,10 @@ function findRange(native, value) {
     }
   }
 
-  const range = Range.create({
-    anchorKey: anchor.key,
-    anchorOffset: anchor.offset,
-    focusKey: focus.key,
-    focusOffset: focus.offset,
-    isBackward: isCollapsed ? false : isBackward(native),
-    isFocused: true,
+  const { document } = value
+  const range = document.createRange({
+    anchor,
+    focus,
   })
 
   return range

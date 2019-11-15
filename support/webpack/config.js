@@ -6,18 +6,14 @@ const ExtractTextPlugin = require('extract-text-webpack-plugin')
 const CopyWebpackPlugin = require('copy-webpack-plugin')
 const UglifyJSPlugin = require('uglifyjs-webpack-plugin')
 
+const DefinePlugin = webpack.DefinePlugin
 const NamedModulesPlugin = webpack.NamedModulesPlugin
 const HotModuleReplacementPlugin = webpack.HotModuleReplacementPlugin
 const IS_PROD = process.env.NODE_ENV === 'production'
 const IS_DEV = !IS_PROD
 
 const config = {
-  entry: [
-    'babel-polyfill',
-    'element-closest',
-    'react-hot-loader/patch',
-    './examples/index.js',
-  ],
+  entry: ['react-hot-loader/patch', './examples/index.js'],
   output: {
     path: path.resolve(__dirname, '../../build'),
     filename: '[name]-[hash].js',
@@ -62,11 +58,17 @@ const config = {
     ],
   },
   plugins: [
+    new DefinePlugin({
+      'process.env.NODE_ENV': JSON.stringify(
+        IS_PROD ? 'production' : 'development'
+      ),
+    }),
     new ExtractTextPlugin('[name]-[contenthash].css'),
     new HtmlWebpackPlugin({
       title: 'Slate',
       template: HtmlWebpackTemplate,
       inject: false,
+      scripts: ['https://cdn.polyfill.io/v2/polyfill.min.js'],
       links: [
         'https://fonts.googleapis.com/css?family=Roboto:400,400i,700,700i&subset=latin-ext',
         'https://fonts.googleapis.com/icon?family=Material+Icons',

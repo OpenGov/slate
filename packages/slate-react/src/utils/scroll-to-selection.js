@@ -1,6 +1,6 @@
 import getWindow from 'get-window'
 import isBackward from 'selection-is-backward'
-import { IS_SAFARI, IS_IOS } from '../constants/environment'
+import { IS_SAFARI, IS_IOS } from 'slate-dev-environment'
 
 /**
  * CSS overflow values that would cause scrolling.
@@ -133,10 +133,13 @@ function scrollToSelection(selection) {
     height = offsetHeight
     scrollerTop = scrollerRect.top + parseInt(borderTopWidth, 10)
     scrollerLeft = scrollerRect.left + parseInt(borderLeftWidth, 10)
+
     scrollerBordersY =
       parseInt(borderTopWidth, 10) + parseInt(borderBottomWidth, 10)
+
     scrollerBordersX =
       parseInt(borderLeftWidth, 10) + parseInt(borderRightWidth, 10)
+
     scrollerPaddingTop = parseInt(paddingTop, 10)
     scrollerPaddingBottom = parseInt(paddingBottom, 10)
     scrollerPaddingLeft = parseInt(paddingLeft, 10)

@@ -26,18 +26,8 @@ class MarkdownPreview extends React.Component {
 
   state = {
     value: Plain.deserialize(
-      'Slate is flexible enough to add **decorators** that can format text based on its content. For example, this editor has **Markdown** preview decorators on it, to make it _dead_ simple to make an editor with built-in Markdown previewing.\n## Try it out!\nTry it out for yourself!'
+      'Slate is flexible enough to add **decorations** that can format text based on its content. For example, this editor has **Markdown** preview decorations on it, to make it _dead_ simple to make an editor with built-in Markdown previewing.\n## Try it out!\nTry it out for yourself!'
     ),
-  }
-
-  /**
-   * On change.
-   *
-   * @param {Change} change
-   */
-
-  onChange = ({ value }) => {
-    this.setState({ value })
   }
 
   /**
@@ -49,15 +39,13 @@ class MarkdownPreview extends React.Component {
 
   render() {
     return (
-      <div className="editor">
-        <Editor
-          placeholder="Write some markdown..."
-          value={this.state.value}
-          onChange={this.onChange}
-          renderMark={this.renderMark}
-          decorateNode={this.decorateNode}
-        />
-      </div>
+      <Editor
+        placeholder="Write some markdown..."
+        value={this.state.value}
+        onChange={this.onChange}
+        renderMark={this.renderMark}
+        decorateNode={this.decorateNode}
+      />
     )
   }
 
@@ -65,23 +53,31 @@ class MarkdownPreview extends React.Component {
    * Render a Slate mark.
    *
    * @param {Object} props
+   * @param {Editor} editor
+   * @param {Function} next
    * @return {Element}
    */
 
-  renderMark = props => {
-    const { children, mark } = props
+  renderMark = (props, editor, next) => {
+    const { children, mark, attributes } = props
+
     switch (mark.type) {
       case 'bold':
-        return <strong>{children}</strong>
+        return <strong {...attributes}>{children}</strong>
+
       case 'code':
-        return <code>{children}</code>
+        return <code {...attributes}>{children}</code>
+
       case 'italic':
-        return <em>{children}</em>
+        return <em {...attributes}>{children}</em>
+
       case 'underlined':
-        return <u>{children}</u>
+        return <u {...attributes}>{children}</u>
+
       case 'title': {
         return (
           <span
+            {...attributes}
             style={{
               fontWeight: 'bold',
               fontSize: '20px',
@@ -93,12 +89,19 @@ class MarkdownPreview extends React.Component {
           </span>
         )
       }
+
       case 'punctuation': {
-        return <span style={{ opacity: 0.2 }}>{children}</span>
+        return (
+          <span {...attributes} style={{ opacity: 0.2 }}>
+            {children}
+          </span>
+        )
       }
+
       case 'list': {
         return (
           <span
+            {...attributes}
             style={{
               paddingLeft: '10px',
               lineHeight: '10px',
@@ -109,9 +112,11 @@ class MarkdownPreview extends React.Component {
           </span>
         )
       }
+
       case 'hr': {
         return (
           <span
+            {...attributes}
             style={{
               borderBottom: '2px solid #000',
               display: 'block',
@@ -122,18 +127,34 @@ class MarkdownPreview extends React.Component {
           </span>
         )
       }
+
+      default: {
+        return next()
+      }
     }
+  }
+
+  /**
+   * On change.
+   *
+   * @param {Editor} editor
+   */
+
+  onChange = ({ value }) => {
+    this.setState({ value })
   }
 
   /**
    * Define a decorator for markdown styles.
    *
    * @param {Node} node
+   * @param {Function} next
    * @return {Array}
    */
 
-  decorateNode(node) {
-    if (node.object != 'block') return
+  decorateNode(node, editor, next) {
+    const others = next() || []
+    if (node.object != 'block') return others
 
     const string = node.text
     const texts = node.getTexts().toArray()
@@ -176,21 +197,27 @@ class MarkdownPreview extends React.Component {
       }
 
       if (typeof token != 'string') {
-        const range = {
-          anchorKey: startText.key,
-          anchorOffset: startOffset,
-          focusKey: endText.key,
-          focusOffset: endOffset,
-          marks: [{ type: token.type }],
+        const dec = {
+          anchor: {
+            key: startText.key,
+            offset: startOffset,
+          },
+          focus: {
+            key: endText.key,
+            offset: endOffset,
+          },
+          mark: {
+            type: token.type,
+          },
         }
 
-        decorations.push(range)
+        decorations.push(dec)
       }
 
       start = end
     }
 
-    return decorations
+    return [...others, ...decorations]
   }
 }
 
